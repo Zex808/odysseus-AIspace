@@ -54,6 +54,22 @@ def require_admin(request: Request):
         raise HTTPException(403, "Admin only")
 
 
+def embed_allowed_origins() -> list[str]:
+    """Origins (scheme://host[:port]) allowed to embed the Odysseus UI in an
+    iframe, from the EMBED_ALLOWED_ORIGINS env var (comma-separated). Used to
+    surface Odysseus as a tab inside a companion dashboard (e.g. Patrick's
+    Magic). Empty by default, which keeps the UI unframeable. Parsed per
+    request so tests and long-running processes see env changes; entries
+    without an http(s) scheme are ignored rather than emitted into the CSP.
+    """
+    origins = []
+    for part in os.environ.get("EMBED_ALLOWED_ORIGINS", "").split(","):
+        part = part.strip().rstrip("/")
+        if part.startswith("http://") or part.startswith("https://"):
+            origins.append(part)
+    return origins
+
+
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Add standard security headers to all responses."""
 
@@ -106,7 +122,16 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 "frame-ancestors 'self'"
             )
         else:
-            response.headers["X-Frame-Options"] = "DENY"
+            embed_origins = embed_allowed_origins()
+            if embed_origins:
+                # An external dashboard is allowed to frame the app.
+                # X-Frame-Options can't express an origin allowlist (ALLOW-FROM
+                # is dead), so omit it and rely on frame-ancestors, which every
+                # browser that honours XFO also supports.
+                frame_ancestors = "'self' " + " ".join(embed_origins)
+            else:
+                frame_ancestors = "'none'"
+                response.headers["X-Frame-Options"] = "DENY"
             # NOTE: `style-src 'unsafe-inline'` is intentionally retained.
             # `static/index.html` and `static/login.html` ship inline <style>
             # blocks, and several JS modules build runtime `style=""` attrs.
@@ -122,6 +147,6 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 "media-src 'self' blob:; "
                 "connect-src 'self'; "
                 "frame-src 'self'; "
-                "frame-ancestors 'none'"
+                f"frame-ancestors {frame_ancestors}"
             )
         return response

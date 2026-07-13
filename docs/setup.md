@@ -378,6 +378,7 @@ Key settings:
 | `AUTH_ENABLED` | `true` | Enable/disable login |
 | `LOCALHOST_BYPASS` | `false` | Development-only auth bypass for loopback requests. Keep false for shared/network deployments. |
 | `ALLOWED_ORIGINS` | `http://localhost,http://127.0.0.1` | Comma-separated exact permitted origins for cross-origin browser/API clients. |
+| `EMBED_ALLOWED_ORIGINS` | -- | Comma-separated origins allowed to embed the Odysseus UI in an iframe (e.g. a companion dashboard at `http://localhost:3000`). Empty keeps the UI unframeable (`frame-ancestors 'none'` + `X-Frame-Options: DENY`). Note: for cross-*site* embedding (different domains, not just ports) session cookies additionally require HTTPS with `SECURE_COOKIES=true`. |
 | `SECURE_COOKIES` | `false` | Set true when serving Odysseus through HTTPS at a trusted proxy or private access gateway. |
 | `DATABASE_URL` | `sqlite:///./data/app.db` | Database connection string |
 | `CHROMADB_HOST` | `localhost` | ChromaDB host for vector memory. Docker overrides this to `chromadb`. |

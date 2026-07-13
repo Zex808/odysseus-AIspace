@@ -65,3 +65,36 @@ def test_permissions_policy_locks_camera_and_geolocation_but_allows_self_microph
     # would also block the app's own same-origin voice/STT button.
     assert "microphone=()" not in policy
     assert "microphone=(self)" in policy
+
+
+def test_framing_denied_by_default(monkeypatch):
+    monkeypatch.delenv("EMBED_ALLOWED_ORIGINS", raising=False)
+
+    response = _client().get("/")
+
+    assert response.headers["x-frame-options"] == "DENY"
+    assert "frame-ancestors 'none'" in response.headers["content-security-policy"]
+
+
+def test_embed_allowed_origins_extend_frame_ancestors(monkeypatch):
+    monkeypatch.setenv(
+        "EMBED_ALLOWED_ORIGINS",
+        "http://localhost:3000, https://dash.example.com/",
+    )
+
+    response = _client().get("/")
+
+    csp = response.headers["content-security-policy"]
+    assert "frame-ancestors 'self' http://localhost:3000 https://dash.example.com" in csp
+    # XFO can't express an allowlist — it must be omitted so it doesn't
+    # override the CSP in browsers that would otherwise honour it.
+    assert "x-frame-options" not in response.headers
+
+
+def test_embed_allowed_origins_ignores_non_http_entries(monkeypatch):
+    monkeypatch.setenv("EMBED_ALLOWED_ORIGINS", "javascript:alert(1), , ftp://x")
+
+    response = _client().get("/")
+
+    assert response.headers["x-frame-options"] == "DENY"
+    assert "frame-ancestors 'none'" in response.headers["content-security-policy"]
